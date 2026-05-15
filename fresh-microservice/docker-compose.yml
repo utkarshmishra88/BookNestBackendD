@@ -199,18 +199,6 @@ services:
     networks:
       - booknest-net
 
-  frontend:
-    build:
-      context: ../../../booknest-react/booknest-react/booknest-react
-      dockerfile: Dockerfile
-    container_name: booknest-frontend
-    ports:
-      - "5173:80"
-    depends_on:
-      - api-gateway
-    networks:
-      - booknest-net
-
 volumes:
   mysql_data:
 
