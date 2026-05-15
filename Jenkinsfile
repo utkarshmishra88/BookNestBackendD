@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        EC2_HOST = '18.234.44.203'
+        EC2_HOST = '3.234.59.223'
         EC2_USER = 'ubuntu'
     }
     triggers { githubPush() }
