@@ -1,0 +1,73 @@
+package com.booknest.book.resource;
+
+import com.booknest.book.entity.Book;
+import com.booknest.book.service.BookService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * REST endpoints for Book catalog and inventory management.
+ */
+@RestController
+@RequestMapping("/books")
+@RequiredArgsConstructor
+public class BookResource {
+
+    // Injecting the Interface, not the Implementation class
+    private final BookService bookService;
+
+    // --- Public Browsing Endpoints ---
+
+    @GetMapping
+    public ResponseEntity<List<Book>> getAllBooks() {
+        return new ResponseEntity<>(bookService.getAllBooks(), HttpStatus.OK);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Book> getBookById(@PathVariable int id) {
+        return new ResponseEntity<>(bookService.getBookById(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<Book>> searchBooks(@RequestParam String keyword) {
+        return new ResponseEntity<>(bookService.searchBooks(keyword), HttpStatus.OK);
+    }
+
+    @GetMapping("/genre/{genre}")
+    public ResponseEntity<List<Book>> getByGenre(@PathVariable String genre) {
+        return new ResponseEntity<>(bookService.getByGenre(genre), HttpStatus.OK);
+    }
+
+    // --- Protected Admin Endpoints ---
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Book> addBook(@RequestBody Book book) {
+        return new ResponseEntity<>(bookService.addBook(book), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Book> updateBook(@PathVariable int id, @RequestBody Book book) {
+        return new ResponseEntity<>(bookService.updateBook(id, book), HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<String> deleteBook(@PathVariable int id) {
+        bookService.deleteBook(id);
+        return new ResponseEntity<>("Book successfully deleted", HttpStatus.OK);
+    }
+    
+    @PutMapping("/{id}/stock")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<String> updateStock(@PathVariable int id, @RequestParam int quantity) {
+        bookService.updateStock(id, quantity);
+        return new ResponseEntity<>("Stock adjusted successfully", HttpStatus.OK);
+    }
+}

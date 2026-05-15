@@ -1,0 +1,32 @@
+package com.booknest.order.resource;
+
+import com.booknest.order.entity.Order;
+import com.booknest.order.service.OrderService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/orders")
+@RequiredArgsConstructor
+public class OrderResource {
+
+    private final OrderService orderService;
+
+    @PostMapping("/place/{userId}")
+    public ResponseEntity<Order> placeOrder(
+            @PathVariable int userId,
+            @RequestHeader("Authorization") String token) {
+        
+        Order newOrder = orderService.placeOrder(userId, token);
+        return new ResponseEntity<>(newOrder, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<List<Order>> getUserOrders(@PathVariable int userId) {
+        return new ResponseEntity<>(orderService.getUserOrders(userId), HttpStatus.OK);
+    }
+}

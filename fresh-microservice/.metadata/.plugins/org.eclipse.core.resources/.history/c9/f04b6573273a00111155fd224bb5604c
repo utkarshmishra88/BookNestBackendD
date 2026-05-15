@@ -1,0 +1,75 @@
+package com.booknest.auth.service;
+
+import com.booknest.auth.client.NotificationClient;
+import com.booknest.auth.entity.TokenBlacklist;
+import com.booknest.auth.entity.User;
+import com.booknest.auth.repository.TokenBlacklistRepository;
+import com.booknest.auth.repository.UserRepository;
+import com.booknest.auth.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.Random;
+
+@Service
+@RequiredArgsConstructor
+public class AuthServiceImpl implements AuthService {
+
+    private final UserRepository userRepository;
+    private final TokenBlacklistRepository tokenBlacklistRepository;
+    private final NotificationClient notificationClient;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+
+    @Override
+    @Transactional
+    public String registerUser(User user) {
+        if (userRepository.existsByEmail(user.getEmail())) throw new RuntimeException("Email already exists!");
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
+        user.setOtp(otp);
+        user.setActive(false); // Using field renamed to 'active'
+        user.setRole("CUSTOMER");
+        user.setProvider("LOCAL");
+        userRepository.save(user);
+        notificationClient.sendOtp(user.getEmail(), otp);
+        return "Registration successful! Please check your email for the OTP.";
+    }
+
+    @Override
+    @Transactional
+    public String verifyOtp(String email, String otp) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found."));
+        if (user.getOtp() != null && user.getOtp().equals(otp)) {
+            user.setActive(true);
+            user.setOtp(null);
+            userRepository.save(user);
+            return "Account verified! You can now login.";
+        }
+        throw new RuntimeException("Invalid OTP.");
+    }
+
+    @Override
+    public String login(String email, String password) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid email or password."));
+        if (!user.getActive()) throw new RuntimeException("Please verify your account via OTP first.");
+        if (passwordEncoder.matches(password, user.getPasswordHash())) return jwtUtil.generateToken(user);
+        throw new RuntimeException("Invalid email or password.");
+    }
+
+    @Override
+    public void logout(String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            if (!tokenBlacklistRepository.existsByToken(token)) {
+                tokenBlacklistRepository.save(TokenBlacklist.builder().token(token).build());
+            }
+        }
+    }
+
+    @Override
+    public User getProfile(Integer userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found."));
+    }
+}

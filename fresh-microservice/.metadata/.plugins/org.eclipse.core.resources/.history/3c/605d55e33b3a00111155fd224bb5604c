@@ -1,0 +1,18 @@
+package com.booknest.book.service;
+
+import com.booknest.book.entity.Book;
+import java.util.List;
+
+/**
+ * Declares all book CRUD, search, filter, and stock operations.
+ */
+public interface BookService {
+    Book addBook(Book book);
+    List<Book> getAllBooks();
+    Book getBookById(int id);
+    List<Book> searchBooks(String keyword);
+    List<Book> getByGenre(String genre);
+    Book updateBook(int id, Book book);
+    void deleteBook(int id);
+    void updateStock(int id, int quantity);
+}

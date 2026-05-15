@@ -1,0 +1,39 @@
+package com.booknest.cart.resource;
+
+import com.booknest.cart.entity.Cart;
+import com.booknest.cart.service.CartService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/carts")
+@RequiredArgsConstructor
+public class CartResource {
+
+    private final CartService cartService;
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<Cart> getCart(@PathVariable int userId) {
+        return new ResponseEntity<>(cartService.getCartByUserId(userId), HttpStatus.OK);
+    }
+
+    @PostMapping("/{userId}/add")
+    public ResponseEntity<Cart> addItem(
+            @PathVariable int userId,
+            @RequestParam int bookId,
+            @RequestParam int quantity) {
+        return new ResponseEntity<>(cartService.addItemToCart(userId, bookId, quantity), HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{userId}/remove/{bookId}")
+    public ResponseEntity<Cart> removeItem(@PathVariable int userId, @PathVariable int bookId) {
+        return new ResponseEntity<>(cartService.removeItemFromCart(userId, bookId), HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{userId}/clear")
+    public ResponseEntity<Cart> clearCart(@PathVariable int userId) {
+        return new ResponseEntity<>(cartService.clearCart(userId), HttpStatus.OK);
+    }
+}

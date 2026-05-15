@@ -1,0 +1,59 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # Route for Authentication Service
+        - id: auth-route
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/auth/**
+
+        # Route for Book/Catalog Service
+        - id: book-route
+          uri: lb://BOOK-SERVICE
+          predicates:
+            - Path=/books/**, /categories/**
+
+        # Route for Cart Service
+        - id: cart-route
+          uri: lb://CART-SERVICE
+          predicates:
+            - Path=/carts/**
+
+        # Route for Order Service
+        - id: order-route
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/orders/**
+
+        # Route for Wishlist Service
+        - id: wishlist-route
+          uri: lb://WISHLIST-SERVICE
+          predicates:
+            - Path=/wishlists/**
+
+        # Route for Wallet/Payment Service
+        - id: wallet-route
+          uri: lb://WALLET-SERVICE
+          predicates:
+            - Path=/wallets/**
+
+        # NEW: Route for Notification Service
+        - id: notification-route
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/notifications/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

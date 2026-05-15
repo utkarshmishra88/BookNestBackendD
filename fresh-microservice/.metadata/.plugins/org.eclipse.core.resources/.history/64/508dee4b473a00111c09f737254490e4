@@ -1,0 +1,13 @@
+package com.booknest.order.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PlaceOrderRequest {
+    @NotBlank(message = "Payment mode is required")
+    private String paymentMode; // COD | WALLET | RAZORPAY
+}

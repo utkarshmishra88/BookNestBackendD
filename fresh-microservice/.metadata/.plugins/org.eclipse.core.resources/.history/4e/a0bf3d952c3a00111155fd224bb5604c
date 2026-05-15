@@ -1,0 +1,95 @@
+package com.booknest.cart.service;
+
+import com.booknest.cart.client.BookClient;
+import com.booknest.cart.entity.Cart;
+import com.booknest.cart.entity.CartItem;
+import com.booknest.cart.repository.CartRepository;
+import com.booknest.cart.service.CartService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class CartServiceImpl implements CartService {
+
+    private final CartRepository cartRepository;
+    private final BookClient bookClient; 
+
+    @Override
+    public Cart getCartByUserId(int userId) {
+        return cartRepository.findByUserId(userId).orElseGet(() -> {
+            Cart newCart = Cart.builder()
+                    .userId(userId)
+                    .totalPrice(0.0)
+                    .cartItems(new ArrayList<>())
+                    .build();
+            return cartRepository.save(newCart);
+        });
+    }
+
+    @Override
+    @Transactional
+    public Cart addItemToCart(int userId, int bookId, int quantity) {
+        Cart cart = getCartByUserId(userId);
+        
+        BookClient.BookDto book = bookClient.getBookById(bookId);
+
+        Optional<CartItem> existingItem = cart.getCartItems().stream()
+                .filter(item -> item.getBookId() == bookId)
+                .findFirst();
+
+        if (existingItem.isPresent()) {
+            CartItem item = existingItem.get();
+            int newTotalQuantity = item.getQuantity() + quantity;
+            
+            if (book.stock() < newTotalQuantity) {
+                throw new RuntimeException("Cannot add. Only " + book.stock() + " in stock.");
+            }
+            item.setQuantity(newTotalQuantity);
+            item.setPrice(book.price()); 
+        } else {
+            if (book.stock() < quantity) {
+                throw new RuntimeException("Cannot add. Only " + book.stock() + " in stock.");
+            }
+            CartItem newItem = CartItem.builder()
+                    .cart(cart)
+                    .bookId(bookId)
+                    .quantity(quantity)
+                    .price(book.price())
+                    .build();
+            cart.getCartItems().add(newItem);
+        }
+
+        recalculateTotal(cart);
+        return cartRepository.save(cart);
+    }
+
+    @Override
+    @Transactional
+    public Cart removeItemFromCart(int userId, int bookId) {
+        Cart cart = getCartByUserId(userId);
+        cart.getCartItems().removeIf(item -> item.getBookId() == bookId);
+        recalculateTotal(cart);
+        return cartRepository.save(cart);
+    }
+
+    @Override
+    @Transactional
+    public Cart clearCart(int userId) {
+        Cart cart = getCartByUserId(userId);
+        cart.getCartItems().clear();
+        cart.setTotalPrice(0.0);
+        return cartRepository.save(cart);
+    }
+
+    private void recalculateTotal(Cart cart) {
+        double total = cart.getCartItems().stream()
+                .mapToDouble(item -> item.getPrice() * item.getQuantity())
+                .sum();
+        cart.setTotalPrice(total);
+    }
+}

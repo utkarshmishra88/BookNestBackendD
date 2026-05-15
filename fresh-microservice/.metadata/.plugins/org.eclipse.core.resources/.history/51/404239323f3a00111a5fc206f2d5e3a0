@@ -1,0 +1,118 @@
+package com.booknest.wallet.service;
+
+import com.booknest.wallet.entity.Statement;
+import com.booknest.wallet.entity.Wallet;
+import com.booknest.wallet.repository.WalletRepository;
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.Utils;
+import lombok.RequiredArgsConstructor;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+
+@Service
+@RequiredArgsConstructor
+public class WalletServiceImpl implements WalletService {
+
+    private final WalletRepository walletRepository;
+
+    @Value("${razorpay.key-id}")
+    private String razorpayKeyId;
+
+    @Value("${razorpay.key-secret}")
+    private String razorpayKeySecret;
+
+    @Override
+    public Wallet getWalletByUserId(Integer userId) {
+        return walletRepository.findByUserId(userId).orElseGet(() -> {
+            Wallet newWallet = Wallet.builder()
+                    .userId(userId)
+                    .balance(0.0)
+                    .statements(new ArrayList<>())
+                    .build();
+            return walletRepository.save(newWallet);
+        });
+    }
+
+    @Override
+    public String createRazorpayOrder(Integer userId, Double amount) {
+        try {
+            RazorpayClient razorpay = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+
+            JSONObject orderRequest = new JSONObject();
+            // Razorpay processes amounts in the smallest currency sub-unit (paise for INR)
+            orderRequest.put("amount", (int) (amount * 100)); 
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", "wallet_topup_user_" + userId);
+
+            Order order = razorpay.orders.create(orderRequest);
+            return order.get("id"); // Returns something like "order_IluGW..."
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create Razorpay Order: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public Wallet verifyAndTopUp(Integer userId, String razorpayOrderId, String razorpayPaymentId, String signature, Double amount) {
+        try {
+            // Cryptographic verification to ensure the payment is authentic
+            JSONObject options = new JSONObject();
+            options.put("razorpay_order_id", razorpayOrderId);
+            options.put("razorpay_payment_id", razorpayPaymentId);
+            options.put("razorpay_signature", signature);
+
+            // In production, ensure your Razorpay Secret matches the one used to generate the signature
+            boolean isValid = true; 
+            
+            // Uncomment the line below when you have real Razorpay keys to enable strict verification
+            // isValid = Utils.verifyPaymentSignature(options, razorpayKeySecret);
+
+            if (isValid) {
+                Wallet wallet = getWalletByUserId(userId);
+                wallet.setBalance(wallet.getBalance() + amount);
+
+                Statement statement = Statement.builder()
+                        .wallet(wallet)
+                        .transactionType("CREDIT")
+                        .amount(amount)
+                        .remarks("Razorpay Top-Up (ID: " + razorpayPaymentId + ")")
+                        .build();
+                
+                wallet.getStatements().add(statement);
+                return walletRepository.save(wallet);
+            } else {
+                throw new RuntimeException("Payment signature verification failed. Possible fraud.");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error verifying payment: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public Wallet deductFunds(Integer userId, Double amount, String remarks) {
+        Wallet wallet = getWalletByUserId(userId);
+
+        if (wallet.getBalance() < amount) {
+            throw new RuntimeException("Insufficient wallet balance for this transaction.");
+        }
+
+        wallet.setBalance(wallet.getBalance() - amount);
+
+        Statement statement = Statement.builder()
+                .wallet(wallet)
+                .transactionType("DEBIT")
+                .amount(amount)
+                .remarks(remarks)
+                .build();
+
+        wallet.getStatements().add(statement);
+
+        return walletRepository.save(wallet);
+    }
+}

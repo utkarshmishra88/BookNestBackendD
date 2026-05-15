@@ -1,0 +1,49 @@
+package com.booknest.wallet.resource;
+
+import com.booknest.wallet.entity.Wallet;
+import com.booknest.wallet.service.WalletService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/wallets")
+@RequiredArgsConstructor
+public class WalletResource {
+
+    private final WalletService walletService;
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<Wallet> getWallet(@PathVariable int userId) {
+        return new ResponseEntity<>(walletService.getWalletByUserId(userId), HttpStatus.OK);
+    }
+
+    // Step 1 of Payment: Generate Razorpay Order ID for the frontend UI
+    @PostMapping("/{userId}/razorpay/create")
+    public ResponseEntity<String> createRazorpayOrder(@PathVariable int userId, @RequestParam double amount) {
+        return new ResponseEntity<>(walletService.createRazorpayOrder(userId, amount), HttpStatus.CREATED);
+    }
+
+    // Step 2 of Payment: Frontend sends the success payload back here to officially add funds
+    @PostMapping("/{userId}/razorpay/verify")
+    public ResponseEntity<Wallet> verifyAndTopUp(
+            @PathVariable int userId,
+            @RequestParam String razorpayOrderId,
+            @RequestParam String razorpayPaymentId,
+            @RequestParam String signature,
+            @RequestParam double amount) {
+        
+        Wallet updatedWallet = walletService.verifyAndTopUp(userId, razorpayOrderId, razorpayPaymentId, signature, amount);
+        return new ResponseEntity<>(updatedWallet, HttpStatus.OK);
+    }
+
+    // Used by the Order Service to pay for checkout
+    @PostMapping("/{userId}/debit")
+    public ResponseEntity<Wallet> deductFunds(
+            @PathVariable int userId, 
+            @RequestParam double amount,
+            @RequestParam String remarks) {
+        return new ResponseEntity<>(walletService.deductFunds(userId, amount, remarks), HttpStatus.OK);
+    }
+}

@@ -1,0 +1,47 @@
+package com.booknest.book.resource;
+
+import com.booknest.book.entity.Category;
+import com.booknest.book.service.CategoryService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * REST endpoints for Category management.
+ */
+@RestController
+@RequestMapping("/categories")
+@RequiredArgsConstructor
+public class CategoryResource {
+
+    // Injecting the Interface, not the Implementation class
+    private final CategoryService categoryService;
+
+    @GetMapping
+    public ResponseEntity<List<Category>> getAllCategories() {
+        return new ResponseEntity<>(categoryService.getAllCategories(), HttpStatus.OK);
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Category> addCategory(@RequestBody Category category) {
+        return new ResponseEntity<>(categoryService.addCategory(category), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Category> updateCategory(@PathVariable int id, @RequestBody Category category) {
+        return new ResponseEntity<>(categoryService.updateCategory(id, category), HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<String> deleteCategory(@PathVariable int id) {
+        categoryService.deleteCategory(id);
+        return new ResponseEntity<>("Category successfully deleted", HttpStatus.OK);
+    }
+}

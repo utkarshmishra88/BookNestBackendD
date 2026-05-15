@@ -1,0 +1,82 @@
+package com.booknest.book.service;
+
+import com.booknest.book.entity.Book;
+import com.booknest.book.entity.Category;
+import com.booknest.book.repository.BookRepository;
+import com.booknest.book.repository.CategoryRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+/**
+ * Implementation of BookService. Enforces structural integrity and manages the inventory catalog.
+ */
+@Service
+@RequiredArgsConstructor
+public class BookServiceImpl implements BookService {
+
+    private final BookRepository bookRepository;
+    private final CategoryRepository categoryRepository;
+
+    @Override
+    public Book addBook(Book book) {
+        // Enforce structural integrity by ensuring the category exists in the DB
+        Category category = categoryRepository.findById(book.getCategory().getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Invalid Category ID. Please create the category first."));
+        
+        book.setCategory(category);
+        return bookRepository.save(book);
+    }
+
+    @Override
+    public List<Book> getAllBooks() {
+        return bookRepository.findAll();
+    }
+
+    @Override
+    public Book getBookById(int id) {
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Book not found with ID: " + id));
+    }
+
+    @Override
+    public List<Book> searchBooks(String keyword) {
+        return bookRepository.searchByKeyword(keyword);
+    }
+
+    @Override
+    public List<Book> getByGenre(String genre) {
+        return bookRepository.findByCategory_CategoryNameIgnoreCase(genre);
+    }
+
+    @Override
+    public Book updateBook(int id, Book updatedBook) {
+        Book existing = getBookById(id);
+        
+        Category category = categoryRepository.findById(updatedBook.getCategory().getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Invalid Category ID."));
+
+        existing.setTitle(updatedBook.getTitle());
+        existing.setAuthor(updatedBook.getAuthor());
+        existing.setCategory(category);
+        existing.setPrice(updatedBook.getPrice());
+        existing.setStock(updatedBook.getStock());
+        existing.setDescription(updatedBook.getDescription());
+        existing.setCoverImageUrl(updatedBook.getCoverImageUrl());
+        
+        return bookRepository.save(existing);
+    }
+
+    @Override
+    public void deleteBook(int id) {
+        bookRepository.deleteById(id);
+    }
+    
+    @Override
+    public void updateStock(int id, int quantity) {
+        Book book = getBookById(id);
+        book.setStock(book.getStock() + quantity); // Can handle negative values for stock reduction
+        bookRepository.save(book);
+    }
+}

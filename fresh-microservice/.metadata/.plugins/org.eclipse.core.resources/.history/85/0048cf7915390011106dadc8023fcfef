@@ -1,0 +1,21 @@
+package com.booknest.order.service;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
+import java.util.List;
+
+@FeignClient(name = "CART-SERVICE")
+public interface CartClient {
+    
+    record CartItemDto(int bookId, int quantity, double price) {}
+    record CartDto(int cartId, int userId, double totalPrice, List<CartItemDto> cartItems) {}
+
+    @GetMapping("/carts/{userId}")
+    CartDto getCart(@PathVariable("userId") int userId, @RequestHeader("Authorization") String token);
+
+    @DeleteMapping("/carts/{userId}/clear")
+    void clearCart(@PathVariable("userId") int userId, @RequestHeader("Authorization") String token);
+}

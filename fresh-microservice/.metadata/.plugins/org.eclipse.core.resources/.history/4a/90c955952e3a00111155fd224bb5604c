@@ -1,0 +1,61 @@
+package com.booknest.auth.entity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "users")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer userId;
+
+    @NotBlank(message = "Full name is required")
+    @Column(nullable = false)
+    private String fullName;
+
+    @Email(message = "Invalid email format")
+    @NotBlank(message = "Email is required")
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @JsonIgnore
+    @NotBlank(message = "Password hash is required")
+    @Column(nullable = false)
+    private String passwordHash;
+
+    @NotBlank(message = "Role is required")
+    @Column(nullable = false)
+    private String role;
+
+    @NotBlank(message = "Provider is required")
+    @Column(nullable = false)
+    private String provider;
+
+    @JsonIgnore
+    private String otp;
+
+    @Column(nullable = false)
+    private Boolean active = false;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        if (this.active == null) {
+            this.active = false;
+        }
+    }
+}

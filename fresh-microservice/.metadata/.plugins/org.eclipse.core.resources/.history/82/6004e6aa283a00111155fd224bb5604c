@@ -1,0 +1,11 @@
+package com.booknest.auth.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+@FeignClient(name = "NOTIFICATION-SERVICE")
+public interface NotificationClient {
+    @PostMapping("/notifications/send-otp")
+    void sendOtp(@RequestParam("email") String email, @RequestParam("otp") String otp);
+}

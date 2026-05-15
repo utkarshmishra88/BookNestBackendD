@@ -1,0 +1,86 @@
+package com.booknest.auth.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "addresses")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Address {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer addressId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Size(max = 50, message = "Label must be at most 50 characters")
+    private String label;
+
+    @NotBlank(message = "Address line 1 is required")
+    @Size(max = 150, message = "Address line 1 must be at most 150 characters")
+    @Column(nullable = false, length = 150)
+    private String line1;
+
+    @Size(max = 150, message = "Address line 2 must be at most 150 characters")
+    private String line2;
+
+    @NotBlank(message = "City is required")
+    @Size(max = 80, message = "City must be at most 80 characters")
+    @Column(nullable = false, length = 80)
+    private String city;
+
+    @NotBlank(message = "State is required")
+    @Size(max = 80, message = "State must be at most 80 characters")
+    @Column(nullable = false, length = 80)
+    private String state;
+
+    @NotBlank(message = "Postal code is required")
+    @Size(max = 20, message = "Postal code must be at most 20 characters")
+    @Column(nullable = false, length = 20)
+    private String postalCode;
+
+    @NotBlank(message = "Country is required")
+    @Size(max = 80, message = "Country must be at most 80 characters")
+    @Column(nullable = false, length = 80)
+    private String country;
+
+    /** Mobile for delivery contact (required on create/update via API). */
+    @Size(max = 20, message = "Mobile must be at most 20 characters")
+    @Column(length = 20)
+    private String mobileNumber;
+
+    @NotNull(message = "isDefault is required")
+    @Column(nullable = false)
+    private Boolean isDefault = false;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+        if (this.isDefault == null) this.isDefault = false;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+        if (this.isDefault == null) this.isDefault = false;
+    }
+}

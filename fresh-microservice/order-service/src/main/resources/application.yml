@@ -1,0 +1,91 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: order-service
+
+  main:
+    allow-bean-definition-overriding: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/booknest_order_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: ${DB_PASSWORD:password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: false
+    hostname: localhost
+    instance-id: ${spring.application.name}:${server.port}
+
+jwt:
+  # Must be same Base64 secret used in auth-service
+  secret: ${JWT_SECRET:YourSuperSecretKeyForBookNestPlatformEnsureItIsLongEnough}
+# Must match payment-service — sent as X-Internal-Api-Key on Feign calls to payment-service.
+booknest:
+  internal-api-key: ${INTERNAL_API_KEY:booknest-dev-internal-order-to-payment-key-change-in-prod}
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 15000
+        loggerLevel: basic
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    circuitbreakers:
+      enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      paymentService:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowType: COUNT_BASED
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+      catalogService:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+  timelimiter:
+    instances:
+      paymentService:
+        timeoutDuration: 2s
+
+logging:
+  file:
+    path: ../logs
+    name: ../logs/${spring.application.name}.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.booknest: DEBUG
+    com.booknest.order.filter: WARN
+    com.booknest.order.util: WARN

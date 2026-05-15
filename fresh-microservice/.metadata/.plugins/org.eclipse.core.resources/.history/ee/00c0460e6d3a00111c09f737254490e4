@@ -1,0 +1,116 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          "[/**]":
+            allowedOrigins:
+              - "http://localhost:5173"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+        # Auth Service
+        - id: auth-route
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/auth/**,/api/auth/**
+          filters:
+            - StripPrefix=0
+
+        # Book Service
+        - id: book-route
+          uri: lb://BOOK-SERVICE
+          predicates:
+            - Path=/books/**,/api/books/**,/categories/**,/api/categories/**
+          filters:
+            - StripPrefix=0
+
+        # Cart Service
+        - id: cart-route
+          uri: lb://CART-SERVICE
+          predicates:
+            - Path=/carts/**,/api/carts/**
+          filters:
+            - StripPrefix=0
+
+        # Order Service
+        - id: order-route
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/orders/**,/api/orders/**
+          filters:
+            - StripPrefix=0
+
+        # Wishlist Service
+        - id: wishlist-route
+          uri: lb://WISHLIST-SERVICE
+          predicates:
+            - Path=/wishlists/**,/api/wishlists/**
+          filters:
+            - StripPrefix=0
+
+        # Wallet Service
+        - id: wallet-route
+          uri: lb://WALLET-SERVICE
+          predicates:
+            - Path=/wallets/**,/api/wallets/**
+          filters:
+            - StripPrefix=0
+
+        # Payment Service
+        - id: payment-route
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/payments/**,/api/payments/**
+          filters:
+            - StripPrefix=0
+
+        # Notification Service
+        - id: notification-route
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/notifications/**,/api/notifications/**
+          filters:
+            - StripPrefix=0
+
+        # Review Service
+        - id: review-route
+          uri: lb://REVIEW-SERVICE
+          predicates:
+            - Path=/reviews/**,/api/reviews/**
+          filters:
+            - StripPrefix=0
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

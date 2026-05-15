@@ -1,0 +1,159 @@
+package com.booknest.wallet.service.impl;
+
+import com.booknest.wallet.dto.*;
+import com.booknest.wallet.entity.Statement;
+import com.booknest.wallet.entity.Wallet;
+import com.booknest.wallet.repository.WalletRepository;
+import com.booknest.wallet.service.WalletService;
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.Utils;
+import lombok.RequiredArgsConstructor;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class WalletServiceImpl implements WalletService {
+
+    private final WalletRepository walletRepository;
+
+    @Value("${razorpay.key-id}")
+    private String razorpayKeyId;
+
+    @Value("${razorpay.key-secret}")
+    private String razorpayKeySecret;
+
+    @Override
+    public WalletResponse getWalletByUserId(Integer userId) {
+        Wallet wallet = getOrCreateWallet(userId);
+        return toResponse(wallet);
+    }
+
+    @Override
+    public CreateRazorpayOrderResponse createRazorpayOrder(Integer userId, CreateRazorpayOrderRequest request) {
+        if (request.getAmount() == null || request.getAmount() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid amount");
+        }
+
+        try {
+            RazorpayClient razorpay = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+
+            int amountInPaise = (int) Math.round(request.getAmount() * 100);
+
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", amountInPaise);
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", "wallet_topup_user_" + userId);
+
+            Order order = razorpay.orders.create(orderRequest);
+
+            return CreateRazorpayOrderResponse.builder()
+                    .razorpayOrderId(order.get("id"))
+                    .keyId(razorpayKeyId)
+                    .currency("INR")
+                    .amountInPaise(amountInPaise)
+                    .build();
+
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create Razorpay order");
+        }
+    }
+
+    @Override
+    @Transactional
+    public WalletResponse verifyAndTopUp(Integer userId, VerifyTopUpRequest request) {
+        try {
+            JSONObject options = new JSONObject();
+            options.put("razorpay_order_id", request.getRazorpayOrderId());
+            options.put("razorpay_payment_id", request.getRazorpayPaymentId());
+            options.put("razorpay_signature", request.getRazorpaySignature());
+
+            boolean isValid = Utils.verifyPaymentSignature(options, razorpayKeySecret);
+            if (!isValid) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment signature verification failed");
+            }
+
+            Wallet wallet = getOrCreateWallet(userId);
+            wallet.setBalance(wallet.getBalance() + request.getAmount());
+
+            Statement statement = Statement.builder()
+                    .wallet(wallet)
+                    .transactionType("CREDIT")
+                    .amount(request.getAmount())
+                    .remarks("Razorpay Top-Up (Payment ID: " + request.getRazorpayPaymentId() + ")")
+                    .build();
+
+            wallet.getStatements().add(statement);
+            Wallet saved = walletRepository.save(wallet);
+
+            return toResponse(saved);
+
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error verifying payment");
+        }
+    }
+
+    @Override
+    @Transactional
+    public WalletResponse deductFunds(Integer userId, DebitRequest request) {
+        Wallet wallet = getOrCreateWallet(userId);
+
+        if (wallet.getBalance() < request.getAmount()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient wallet balance");
+        }
+
+        wallet.setBalance(wallet.getBalance() - request.getAmount());
+
+        Statement statement = Statement.builder()
+                .wallet(wallet)
+                .transactionType("DEBIT")
+                .amount(request.getAmount())
+                .remarks(request.getRemarks())
+                .build();
+
+        wallet.getStatements().add(statement);
+        Wallet saved = walletRepository.save(wallet);
+
+        return toResponse(saved);
+    }
+
+    private Wallet getOrCreateWallet(Integer userId) {
+        return walletRepository.findByUserId(userId).orElseGet(() -> {
+            Wallet newWallet = Wallet.builder()
+                    .userId(userId)
+                    .balance(0.0)
+                    .statements(new ArrayList<>())
+                    .build();
+            return walletRepository.save(newWallet);
+        });
+    }
+
+    private WalletResponse toResponse(Wallet wallet) {
+        List<StatementResponse> statements = wallet.getStatements().stream()
+                .map(s -> StatementResponse.builder()
+                        .statementId(s.getStatementId())
+                        .transactionType(s.getTransactionType())
+                        .amount(s.getAmount())
+                        .remarks(s.getRemarks())
+                        .transactionDate(s.getTransactionDate())
+                        .build())
+                .toList();
+
+        return WalletResponse.builder()
+                .walletId(wallet.getWalletId())
+                .userId(wallet.getUserId())
+                .balance(wallet.getBalance())
+                .statements(statements)
+                .build();
+    }
+}

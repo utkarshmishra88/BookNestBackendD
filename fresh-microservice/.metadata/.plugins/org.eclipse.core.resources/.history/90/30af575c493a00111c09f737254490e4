@@ -1,0 +1,26 @@
+package com.booknest.wallet.dto;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class VerifyTopUpRequest {
+
+    @NotBlank(message = "razorpayOrderId is required")
+    private String razorpayOrderId;
+
+    @NotBlank(message = "razorpayPaymentId is required")
+    private String razorpayPaymentId;
+
+    @NotBlank(message = "razorpaySignature is required")
+    private String razorpaySignature;
+
+    @NotNull(message = "Amount is required")
+    @DecimalMin(value = "1.0", inclusive = true, message = "Amount must be at least 1")
+    private Double amount;
+}

@@ -1,0 +1,246 @@
+package com.booknest.order.service.impl;
+
+import com.booknest.order.client.BookClient;
+import com.booknest.order.client.CartClient;
+import com.booknest.order.client.WalletClient;
+import com.booknest.order.dto.OrderItemResponse;
+import com.booknest.order.dto.OrderResponse;
+import com.booknest.order.entity.Order;
+import com.booknest.order.entity.OrderItem;
+import com.booknest.order.repository.OrderRepository;
+import com.booknest.order.service.OrderService;
+import com.razorpay.RazorpayClient;
+import feign.FeignException;
+import lombok.RequiredArgsConstructor;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService {
+
+    private final OrderRepository orderRepository;
+    private final CartClient cartClient;
+    private final BookClient bookClient;
+    private final WalletClient walletClient;
+
+    @Value("${razorpay.key-id}")
+    private String razorpayKeyId;
+
+    @Value("${razorpay.key-secret}")
+    private String razorpayKeySecret;
+
+    @Override
+    @Transactional
+    public OrderResponse placeOrder(Integer userId, String paymentMode, String authHeader) {
+        String mode = normalizePaymentMode(paymentMode);
+
+        CartClient.CartDto cart;
+        try {
+            cart = cartClient.getCart(userId, authHeader);
+        } catch (FeignException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to fetch cart from cart-service");
+        }
+
+        if (cart.cartItems() == null || cart.cartItems().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty. Cannot place an order.");
+        }
+
+        Order order = Order.builder()
+                .userId(userId)
+                .totalAmount(cart.totalPrice())
+                .paymentMode(mode)
+                .build();
+
+        if ("WALLET".equals(mode)) {
+            try {
+                walletClient.deductFunds(
+                        userId,
+                        new WalletClient.DebitRequest(cart.totalPrice(), "Order Payment"),
+                        authHeader
+                );
+            } catch (FeignException.BadRequest e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient wallet balance");
+            } catch (FeignException.Unauthorized e) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wallet authorization failed");
+            } catch (FeignException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Wallet-service unavailable");
+            }
+
+            order.setStatus("COMPLETED_PAID");
+            finalizeOrderItemsAndCart(order, cart, authHeader);
+            return toResponse(orderRepository.save(order));
+        }
+
+        if ("COD".equals(mode)) {
+            order.setStatus("PLACED_COD");
+            finalizeOrderItemsAndCart(order, cart, authHeader);
+            return toResponse(orderRepository.save(order));
+        }
+
+        if ("RAZORPAY".equals(mode)) {
+            try {
+                RazorpayClient razorpay = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+
+                int amountInPaise = (int) Math.round(cart.totalPrice() * 100);
+
+                JSONObject orderRequest = new JSONObject();
+                orderRequest.put("amount", amountInPaise);
+                orderRequest.put("currency", "INR");
+                orderRequest.put("receipt", "order_receipt_user_" + userId);
+
+                com.razorpay.Order rzpOrder = razorpay.orders.create(orderRequest);
+
+                order.setRazorpayOrderId(rzpOrder.get("id"));
+                order.setStatus("PENDING_PAYMENT");
+
+                List<OrderItem> orderItems = cart.cartItems().stream().map(cartItem ->
+                        OrderItem.builder()
+                                .order(order)
+                                .bookId(cartItem.bookId())
+                                .quantity(cartItem.quantity())
+                                .priceAtPurchase(cartItem.price())
+                                .build()
+                ).collect(Collectors.toList());
+
+                order.setOrderItems(orderItems);
+                return toResponse(orderRepository.save(order));
+            } catch (Exception e) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create Razorpay order");
+            }
+        }
+
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid payment mode");
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse verifyRazorpayPayment(
+            Integer orderId,
+            String razorpayOrderId,
+            String razorpayPaymentId,
+            String razorpaySignature,
+            String authHeader
+    ) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (!"PENDING_PAYMENT".equals(order.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not pending payment");
+        }
+
+        if (!order.getRazorpayOrderId().equals(razorpayOrderId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Razorpay order id mismatch");
+        }
+
+        try {
+            // TODO: replace with actual Razorpay signature validation
+            boolean isValid = true;
+
+            if (!isValid) {
+                order.setStatus("PAYMENT_FAILED");
+                orderRepository.save(order);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment verification failed");
+            }
+
+            order.setRazorpayPaymentId(razorpayPaymentId);
+            order.setStatus("COMPLETED_PAID");
+
+            order.getOrderItems().forEach(item -> {
+                try {
+                    bookClient.updateStock(item.getBookId(), -item.getQuantity(), authHeader);
+                } catch (FeignException.Unauthorized e) {
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Book-service rejected token for stock update");
+                } catch (FeignException e) {
+                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Book-service unavailable during stock update");
+                }
+            });
+
+            try {
+                cartClient.clearCart(order.getUserId(), authHeader);
+            } catch (FeignException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Cart-service unavailable during cart clear");
+            }
+
+            return toResponse(orderRepository.save(order));
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error during payment verification");
+        }
+    }
+
+    @Override
+    public List<OrderResponse> getUserOrders(Integer userId) {
+        return orderRepository.findByUserId(userId).stream().map(this::toResponse).toList();
+    }
+
+    private void finalizeOrderItemsAndCart(Order order, CartClient.CartDto cart, String authHeader) {
+        List<OrderItem> orderItems = cart.cartItems().stream().map(cartItem -> {
+            try {
+                bookClient.updateStock(cartItem.bookId(), -cartItem.quantity(), authHeader);
+            } catch (FeignException.Unauthorized e) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Book-service rejected token for stock update");
+            } catch (FeignException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Book-service unavailable during stock update");
+            }
+
+            return OrderItem.builder()
+                    .order(order)
+                    .bookId(cartItem.bookId())
+                    .quantity(cartItem.quantity())
+                    .priceAtPurchase(cartItem.price())
+                    .build();
+        }).collect(Collectors.toList());
+
+        order.setOrderItems(orderItems);
+
+        try {
+            cartClient.clearCart(order.getUserId(), authHeader);
+        } catch (FeignException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Cart-service unavailable during cart clear");
+        }
+    }
+
+    private String normalizePaymentMode(String paymentMode) {
+        if (paymentMode == null || paymentMode.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment mode is required");
+        }
+        String mode = paymentMode.trim().toUpperCase(Locale.ROOT);
+        if (!mode.equals("COD") && !mode.equals("WALLET") && !mode.equals("RAZORPAY")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid payment mode. Use COD, WALLET, or RAZORPAY");
+        }
+        return mode;
+    }
+
+    private OrderResponse toResponse(Order order) {
+        List<OrderItemResponse> items = order.getOrderItems().stream()
+                .map(i -> OrderItemResponse.builder()
+                        .orderItemId(i.getOrderItemId())
+                        .bookId(i.getBookId())
+                        .quantity(i.getQuantity())
+                        .priceAtPurchase(i.getPriceAtPurchase())
+                        .build())
+                .toList();
+
+        return OrderResponse.builder()
+                .orderId(order.getOrderId())
+                .userId(order.getUserId())
+                .totalAmount(order.getTotalAmount())
+                .status(order.getStatus())
+                .paymentMode(order.getPaymentMode())
+                .razorpayOrderId(order.getRazorpayOrderId())
+                .razorpayPaymentId(order.getRazorpayPaymentId())
+                .orderDate(order.getOrderDate())
+                .orderItems(items)
+                .build();
+    }
+}

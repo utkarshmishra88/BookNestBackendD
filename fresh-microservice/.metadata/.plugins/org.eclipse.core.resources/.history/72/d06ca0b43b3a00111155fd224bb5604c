@@ -1,0 +1,29 @@
+package com.booknest.book.repository;
+
+import com.booknest.book.entity.Book;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface BookRepository extends JpaRepository<Book, Integer> {
+
+    List<Book> findByTitleContainingIgnoreCase(String title);
+    List<Book> findByAuthorContainingIgnoreCase(String author);
+    Optional<Book> findByIsbn(String isbn);
+    
+    // Auto-generates a JOIN query to search by the linked category name
+    List<Book> findByCategory_CategoryNameIgnoreCase(String categoryName);
+    
+    /**
+     * Custom SQL query allowing customers to search by title, author, or category simultaneously.
+     */
+    @Query("SELECT b FROM Book b WHERE LOWER(b.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(b.author) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(b.category.categoryName) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    List<Book> searchByKeyword(@Param("keyword") String keyword);
+}

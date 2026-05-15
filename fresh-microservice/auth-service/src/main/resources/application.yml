@@ -1,0 +1,67 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/booknest_auth_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: ${DB_PASSWORD:password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:77186575837-clrgr43c1fpisr48g4ufdgtal4tm37aa.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            scope: email, profile
+            redirect-uri: http://localhost:9000/login/oauth2/code/google
+          github:
+            client-id: ${GITHUB_CLIENT_ID:Ov23liyItzcbh0vLCbnc}
+            client-secret: ${GITHUB_CLIENT_SECRET:c2b2f87cb5a918f0e2cac75a21b6385d8804fef5}
+            scope: user:email, read:user
+            redirect-uri: http://localhost:9000/login/oauth2/code/github
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: false
+    hostname: localhost
+    instance-id: ${spring.application.name}:${server.port}
+
+# JWT settings (replace secret with a secure value in production)
+jwt:
+  secret: ${JWT_SECRET:YourSuperSecretKeyForBookNestPlatformEnsureItIsLongEnough}
+  expiration-ms: 604800000 # 7 days
+
+# Shared with order-service / notification-service for internal APIs (PDF emails, etc.)
+booknest:
+  internal-api-key: ${INTERNAL_API_KEY:booknest-dev-internal-order-to-payment-key-change-in-prod}
+logging:
+  file:
+    path: ../logs
+    name: ../logs/${spring.application.name}.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.booknest: DEBUG
+    com.booknest.auth.client.NotificationClient: DEBUG

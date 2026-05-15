@@ -1,0 +1,18 @@
+package com.booknest.order.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
+
+@FeignClient(name = "BOOK-SERVICE")
+public interface BookClient {
+
+    @PatchMapping("/books/{id}/stock")
+    void updateStock(
+            @PathVariable("id") Integer id, 
+            @RequestParam("quantity") Integer quantity, 
+            @RequestHeader("Authorization") String token
+    );
+}

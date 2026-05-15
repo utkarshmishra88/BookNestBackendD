@@ -1,0 +1,14 @@
+package com.booknest.book.service;
+
+import com.booknest.book.entity.Category;
+import java.util.List;
+
+/**
+ * Declares all category CRUD operations.
+ */
+public interface CategoryService {
+    Category addCategory(Category category);
+    List<Category> getAllCategories();
+    Category updateCategory(int id, Category updatedCategory);
+    void deleteCategory(int id);
+}

@@ -1,0 +1,33 @@
+package com.booknest.cart.entity;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "carts")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Cart {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer cartId;
+
+    // The core rule: One User = One Cart
+    @Column(name = "user_id", nullable = false, unique = true)
+    private Integer userId; 
+
+    @Column(name = "total_price")
+    private Double totalPrice;
+
+    // orphanRemoval = true means if an item is removed from this list, it's deleted from the DB
+    @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<CartItem> cartItems = new ArrayList<>();
+}

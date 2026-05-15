@@ -1,0 +1,9 @@
+package com.booknest.order.service;
+
+import com.booknest.order.entity.Order;
+import java.util.List;
+
+public interface OrderService {
+    Order placeOrder(int userId, String token);
+    List<Order> getUserOrders(int userId);
+}

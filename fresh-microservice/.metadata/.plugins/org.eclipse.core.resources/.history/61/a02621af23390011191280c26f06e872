@@ -1,0 +1,31 @@
+package com.booknest.wallet.entity;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "wallets")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Wallet {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int walletId;
+
+    @Column(name = "user_id", nullable = false, unique = true)
+    private int userId;
+
+    @Column(name = "balance", nullable = false)
+    private double balance;
+
+    @OneToMany(mappedBy = "wallet", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    private List<Statement> statements = new ArrayList<>();
+}

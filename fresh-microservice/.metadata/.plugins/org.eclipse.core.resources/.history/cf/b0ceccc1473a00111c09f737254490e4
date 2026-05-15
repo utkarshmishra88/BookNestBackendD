@@ -1,0 +1,69 @@
+package com.booknest.order.resource;
+
+import com.booknest.order.dto.OrderResponse;
+import com.booknest.order.dto.PlaceOrderRequest;
+import com.booknest.order.dto.VerifyPaymentRequest;
+import com.booknest.order.service.OrderService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/orders")
+@RequiredArgsConstructor
+public class OrderResource {
+
+    private final OrderService orderService;
+
+    @PostMapping("/place/{userId}")
+    public ResponseEntity<OrderResponse> placeOrder(
+            @PathVariable Integer userId,
+            @Valid @RequestBody PlaceOrderRequest request,
+            @RequestHeader("Authorization") String token,
+            Authentication authentication
+    ) {
+        validateOwnership(userId, authentication);
+        OrderResponse newOrder = orderService.placeOrder(userId, request.getPaymentMode(), token);
+        return new ResponseEntity<>(newOrder, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/verify/{orderId}")
+    public ResponseEntity<OrderResponse> verifyPayment(
+            @PathVariable Integer orderId,
+            @Valid @RequestBody VerifyPaymentRequest request,
+            @RequestHeader("Authorization") String token
+    ) {
+        OrderResponse verifiedOrder = orderService.verifyRazorpayPayment(
+                orderId,
+                request.getRazorpayOrderId(),
+                request.getRazorpayPaymentId(),
+                request.getRazorpaySignature(),
+                token
+        );
+        return new ResponseEntity<>(verifiedOrder, HttpStatus.OK);
+    }
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<List<OrderResponse>> getUserOrders(
+            @PathVariable Integer userId,
+            Authentication authentication
+    ) {
+        validateOwnership(userId, authentication);
+        return new ResponseEntity<>(orderService.getUserOrders(userId), HttpStatus.OK);
+    }
+
+    private void validateOwnership(Integer pathUserId, Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new RuntimeException("Unauthorized");
+        }
+        Integer authUserId = Integer.valueOf(authentication.getPrincipal().toString());
+        if (!authUserId.equals(pathUserId)) {
+            throw new RuntimeException("Forbidden: Cannot access another user's orders");
+        }
+    }
+}

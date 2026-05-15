@@ -1,0 +1,14 @@
+package com.booknest.wallet.dto;
+
+import lombok.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class CreateRazorpayOrderResponse {
+    private String razorpayOrderId;
+    private String keyId;
+    private String currency;
+    private Integer amountInPaise;
+}

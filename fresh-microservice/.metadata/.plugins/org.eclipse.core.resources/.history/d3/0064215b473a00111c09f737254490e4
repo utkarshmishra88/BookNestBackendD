@@ -1,0 +1,22 @@
+package com.booknest.order.dto;
+
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class OrderResponse {
+    private Integer orderId;
+    private Integer userId;
+    private Double totalAmount;
+    private String status;
+    private String paymentMode;
+    private String razorpayOrderId;
+    private String razorpayPaymentId;
+    private LocalDateTime orderDate;
+    private List<OrderItemResponse> orderItems;
+}

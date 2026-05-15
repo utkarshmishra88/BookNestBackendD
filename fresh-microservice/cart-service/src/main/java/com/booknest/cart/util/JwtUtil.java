@@ -1,0 +1,51 @@
+package com.booknest.cart.util;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.security.Key;
+
+@Component
+public class JwtUtil {
+
+    @Value("${jwt.secret:YourSuperSecretKeyForBookNestPlatformEnsureItIsLongEnough}")
+    private String secret;
+
+    private Key getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes());
+    }
+
+    public Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public Integer extractUserId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object userId = claims.get("userId");
+        if (userId != null) {
+            return Integer.valueOf(String.valueOf(userId));
+        }
+        return Integer.valueOf(claims.getSubject());
+    }
+
+    public String extractRole(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("role", String.class);
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+}

@@ -1,0 +1,81 @@
+package com.booknest.auth.dto;
+
+import com.booknest.auth.dto.AuthResponse;
+import com.booknest.auth.dto.LoginRequest;
+import com.booknest.auth.dto.OtpVerifyRequest;
+import com.booknest.auth.dto.RegisterRequest;
+import com.booknest.auth.dto.UserResponse;
+import com.booknest.auth.entity.User;
+import com.booknest.auth.service.AuthService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping("/auth")
+@RequiredArgsConstructor
+@Validated
+public class AuthResource {
+
+    private final AuthService authService;
+
+    @PostMapping("/register")
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
+        User user = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .passwordHash(request.getPassword())
+                .build();
+
+        return new ResponseEntity<>(authService.registerUser(user), HttpStatus.CREATED);
+    }
+
+    @PostMapping("/verify")
+    public ResponseEntity<String> verify(@Valid @RequestBody OtpVerifyRequest request) {
+        return ResponseEntity.ok(authService.verifyOtp(request.getEmail(), request.getOtp()));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+        String token = authService.login(request.getEmail(), request.getPassword());
+
+        User user = authService.getProfileByEmail(request.getEmail());
+
+        AuthResponse response = AuthResponse.builder()
+                .token(token)
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        authService.logout(authHeader);
+        return ResponseEntity.ok("Logged out successfully.");
+    }
+
+    @GetMapping("/profile/{userId}")
+    public ResponseEntity<UserResponse> getProfile(@PathVariable Integer userId) {
+        User user = authService.getProfile(userId);
+
+        UserResponse response = UserResponse.builder()
+                .userId(user.getUserId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .provider(user.getProvider())
+                .active(user.getActive())
+                .createdAt(user.getCreatedAt())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+}

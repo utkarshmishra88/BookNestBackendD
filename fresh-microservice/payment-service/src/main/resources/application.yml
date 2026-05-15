@@ -1,0 +1,54 @@
+server:
+  port: 9002
+
+spring:
+  application:
+    name: payment-service
+  config:
+    import: optional:classpath:application-local.yml
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/booknest_payment_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: ${DB_PASSWORD:password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: false
+    hostname: localhost
+    instance-id: ${spring.application.name}:${server.port}
+
+jwt:
+  # Must match auth-service secret. Supports plain-text or Base64 values.
+  secret: ${JWT_SECRET:YourSuperSecretKeyForBookNestPlatformEnsureItIsLongEnough}
+# Shared with order-service Feign client — authenticates service-to-service payment API calls.
+booknest:
+  internal-api-key: ${INTERNAL_API_KEY:booknest-dev-internal-order-to-payment-key-change-in-prod}
+# Do not commit real secrets. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET (see env.example).
+razorpay:
+  key-id: ${RAZORPAY_KEY_ID:}
+  key-secret: ${RAZORPAY_KEY_SECRET:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+logging:
+  file:
+    path: ../logs
+    name: ../logs/${spring.application.name}.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.booknest: DEBUG

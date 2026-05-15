@@ -1,0 +1,44 @@
+package com.booknest.order.resource;
+
+import com.booknest.order.entity.Order;
+import com.booknest.order.service.OrderService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/orders")
+@RequiredArgsConstructor
+public class OrderResource {
+
+    private final OrderService orderService;
+
+    @PostMapping("/place/{userId}")
+    public ResponseEntity<Order> placeOrder(
+            @PathVariable Integer userId, // Wrapper class
+            @RequestParam String paymentMode,
+            @RequestHeader("Authorization") String token) {
+        
+        Order newOrder = orderService.placeOrder(userId, paymentMode, token);
+        return new ResponseEntity<>(newOrder, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/verify/{orderId}")
+    public ResponseEntity<Order> verifyPayment(
+            @PathVariable Integer orderId, // Wrapper class
+            @RequestParam String razorpayPaymentId,
+            @RequestParam String signature,
+            @RequestHeader("Authorization") String token) {
+        
+        Order verifiedOrder = orderService.verifyRazorpayPayment(orderId, razorpayPaymentId, signature, token);
+        return new ResponseEntity<>(verifiedOrder, HttpStatus.OK);
+    }
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<List<Order>> getUserOrders(@PathVariable Integer userId) { // Wrapper class
+        return new ResponseEntity<>(orderService.getUserOrders(userId), HttpStatus.OK);
+    }
+}

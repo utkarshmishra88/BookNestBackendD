@@ -1,0 +1,10 @@
+package com.booknest.order.service;
+
+import com.booknest.order.entity.Order;
+import java.util.List;
+
+public interface OrderService {
+    Order placeOrder(int userId, String paymentMode, String token);
+    Order verifyRazorpayPayment(int orderId, String razorpayPaymentId, String signature, String token);
+    List<Order> getUserOrders(int userId);
+}

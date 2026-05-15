@@ -1,0 +1,63 @@
+package com.booknest.order.service;
+
+import com.booknest.order.client.BookClient;
+import com.booknest.order.client.CartClient;
+import com.booknest.order.entity.Order;
+import com.booknest.order.entity.OrderItem;
+import com.booknest.order.repository.OrderRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class OrderServiceImpl implements OrderService {
+
+    private final OrderRepository orderRepository;
+    private final CartClient cartClient;
+    private final BookClient bookClient;
+
+    @Override
+    @Transactional
+    public Order placeOrder(int userId, String token) {
+        
+        CartClient.CartDto cart = cartClient.getCart(userId, token);
+
+        if (cart.cartItems() == null || cart.cartItems().isEmpty()) {
+            throw new RuntimeException("Cart is empty. Cannot place an order.");
+        }
+
+        Order order = Order.builder()
+                .userId(userId)
+                .totalAmount(cart.totalPrice())
+                .status("COMPLETED")
+                .build();
+
+        List<OrderItem> orderItems = cart.cartItems().stream().map(cartItem -> {
+            bookClient.updateStock(cartItem.bookId(), -cartItem.quantity(), token);
+
+            return OrderItem.builder()
+                    .order(order)
+                    .bookId(cartItem.bookId())
+                    .quantity(cartItem.quantity())
+                    .priceAtPurchase(cartItem.price())
+                    .build();
+        }).collect(Collectors.toList());
+
+        order.setOrderItems(orderItems);
+
+        Order savedOrder = orderRepository.save(order);
+
+        cartClient.clearCart(userId, token);
+
+        return savedOrder;
+    }
+
+    @Override
+    public List<Order> getUserOrders(int userId) {
+        return orderRepository.findByUserId(userId);
+    }
+}

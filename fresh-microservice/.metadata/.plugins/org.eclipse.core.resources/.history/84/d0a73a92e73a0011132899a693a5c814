@@ -1,0 +1,76 @@
+package com.booknest.auth.config;
+
+import com.booknest.auth.filter.JwtFilter;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+/**
+ * Security configuration for auth-service.
+ *
+ * - Permits unauthenticated access to registration/login endpoints and OAuth endpoints.
+ * - Keeps your custom JwtFilter for API requests that require a Bearer token.
+ * - Enables OAuth2 login and redirects to /oauth2/success after successful login.
+ */
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+    private final JwtFilter jwtFilter;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/auth/register",
+                                "/auth/verify",
+                                "/auth/login",
+                                "/error",
+                                // OAuth endpoints used by Spring Security
+                                "/oauth2/**",
+                                "/login/oauth2/**",
+                                "/oauth2/authorization/**",
+                                "/oauth2/success"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+                .exceptionHandling(exc -> exc
+                        .authenticationEntryPoint((req, res, ex) ->
+                                res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Access Denied"))
+                        .accessDeniedHandler(accessDeniedHandler())
+                )
+                // enable oauth2 login; after successful OAuth login Spring will redirect to /oauth2/success
+                .oauth2Login(oauth2 -> oauth2
+                        .defaultSuccessUrl("/oauth2/success", true)
+                );
+
+        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, accessDeniedException) ->
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+    }
+}

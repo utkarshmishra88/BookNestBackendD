@@ -1,0 +1,43 @@
+package com.booknest.auth.resource;
+
+import com.booknest.auth.entity.User;
+import com.booknest.auth.service.AuthService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/auth")
+@RequiredArgsConstructor
+public class AuthResource {
+
+    private final AuthService authService;
+
+    @PostMapping("/register")
+    public ResponseEntity<String> register(@RequestBody User user) {
+        return new ResponseEntity<>(authService.registerUser(user), HttpStatus.CREATED);
+    }
+
+    @PostMapping("/verify")
+    public ResponseEntity<String> verify(@RequestParam String email, @RequestParam String otp) {
+        return new ResponseEntity<>(authService.verifyOtp(email, otp), HttpStatus.OK);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<String> login(@RequestBody Map<String, String> credentials) {
+        return new ResponseEntity<>(authService.login(credentials.get("email"), credentials.get("password")), HttpStatus.OK);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@RequestHeader("Authorization") String authHeader) {
+        authService.logout(authHeader);
+        return new ResponseEntity<>("Logged out successfully.", HttpStatus.OK);
+    }
+
+    @GetMapping("/profile/{userId}")
+    public ResponseEntity<User> getProfile(@PathVariable Integer userId) {
+        return new ResponseEntity<>(authService.getProfile(userId), HttpStatus.OK);
+    }
+}

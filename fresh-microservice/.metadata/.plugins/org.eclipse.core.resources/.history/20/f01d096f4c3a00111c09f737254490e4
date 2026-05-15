@@ -1,0 +1,16 @@
+package com.booknest.wallet.dto;
+
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class WalletResponse {
+    private Integer walletId;
+    private Integer userId;
+    private Double balance;
+    private List<StatementResponse> statements;
+}

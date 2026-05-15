@@ -1,0 +1,50 @@
+package com.booknest.wallet.entity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "statements")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Statement {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer statementId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "wallet_id", nullable = false)
+    @JsonIgnore
+    private Wallet wallet;
+
+    @NotBlank
+    @Column(name = "transaction_type", nullable = false, length = 20)
+    private String transactionType; // CREDIT or DEBIT
+
+    @NotNull
+    @DecimalMin(value = "0.01", inclusive = true)
+    @Column(name = "amount", nullable = false)
+    private Double amount;
+
+    @Size(max = 255)
+    @Column(name = "remarks", length = 255)
+    private String remarks;
+
+    @Column(name = "transaction_date", updatable = false, nullable = false)
+    private LocalDateTime transactionDate;
+
+    @PrePersist
+    protected void onCreate() {
+        this.transactionDate = LocalDateTime.now();
+    }
+}

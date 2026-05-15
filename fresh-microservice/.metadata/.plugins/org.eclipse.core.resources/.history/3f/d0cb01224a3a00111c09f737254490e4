@@ -1,0 +1,10 @@
+package com.booknest.wallet.service;
+
+import com.booknest.wallet.dto.*;
+
+public interface WalletService {
+    WalletResponse getWalletByUserId(Integer userId);
+    CreateRazorpayOrderResponse createRazorpayOrder(Integer userId, CreateRazorpayOrderRequest request);
+    WalletResponse verifyAndTopUp(Integer userId, VerifyTopUpRequest request);
+    WalletResponse deductFunds(Integer userId, DebitRequest request);
+}

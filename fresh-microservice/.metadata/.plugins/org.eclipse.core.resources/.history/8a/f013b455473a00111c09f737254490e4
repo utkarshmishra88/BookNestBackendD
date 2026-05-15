@@ -1,0 +1,14 @@
+package com.booknest.order.dto;
+
+import lombok.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class OrderItemResponse {
+    private Integer orderItemId;
+    private Integer bookId;
+    private Integer quantity;
+    private Double priceAtPurchase;
+}

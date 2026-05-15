@@ -1,0 +1,33 @@
+package com.booknest.payment.resource;
+
+import com.booknest.payment.dto.*;
+import com.booknest.payment.service.PaymentService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/payments")
+public class PaymentResource {
+
+    private final PaymentService paymentService;
+
+    public PaymentResource(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+    @PostMapping("/create-order")
+    public ResponseEntity<CreatePaymentResponse> createOrder(@Valid @RequestBody CreatePaymentRequest request) {
+        return ResponseEntity.ok(paymentService.createPaymentOrder(request));
+    }
+
+    @PostMapping("/verify")
+    public ResponseEntity<VerifyPaymentResponse> verify(@Valid @RequestBody VerifyPaymentRequest request) {
+        return ResponseEntity.ok(paymentService.verifyPayment(request));
+    }
+
+    @GetMapping("/{paymentId}")
+    public ResponseEntity<PaymentDetailsResponse> getById(@PathVariable Long paymentId) {
+        return ResponseEntity.ok(paymentService.getPaymentById(paymentId));
+    }
+}

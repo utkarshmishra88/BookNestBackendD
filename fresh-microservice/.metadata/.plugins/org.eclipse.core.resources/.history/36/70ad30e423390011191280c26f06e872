@@ -1,0 +1,10 @@
+package com.booknest.wallet.service;
+
+import com.booknest.wallet.entity.Wallet;
+
+public interface WalletService {
+    Wallet getWalletByUserId(int userId);
+    String createRazorpayOrder(int userId, double amount);
+    Wallet verifyAndTopUp(int userId, String razorpayOrderId, String razorpayPaymentId, String signature, double amount);
+    Wallet deductFunds(int userId, double amount, String remarks);
+}

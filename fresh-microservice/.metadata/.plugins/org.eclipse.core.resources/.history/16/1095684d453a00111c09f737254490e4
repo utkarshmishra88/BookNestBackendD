@@ -1,0 +1,36 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/booknest_payment_service_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+jwt:
+  # Base64-encoded secret; must match auth-service secret
+  secret: REPLACE_WITH_SAME_BASE64_SECRET_AS_AUTH_SERVICE
+
+razorpay:
+  key-id: REPLACE_WITH_RAZORPAY_KEY_ID
+  key-secret: REPLACE_WITH_RAZORPAY_KEY_SECRET
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,14 @@
+package com.booknest.cart.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@FeignClient(name = "BOOK-SERVICE")
+public interface BookClient {
+    // Record to map the JSON response from book-service
+    record BookDto(Integer bookId, String title, Double price, Integer stock) {}
+
+    @GetMapping("/books/{id}")
+    BookDto getBookById(@PathVariable("id") Integer id);
+}

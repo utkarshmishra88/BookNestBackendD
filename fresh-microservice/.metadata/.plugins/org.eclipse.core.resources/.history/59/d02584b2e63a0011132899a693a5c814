@@ -1,0 +1,58 @@
+package com.booknest.auth.resource;
+
+import com.booknest.auth.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * OAuth2 callback endpoint.
+ *
+ * After successful OAuth2 login Spring Security will redirect here (configured in SecurityConfig).
+ * This endpoint issues a JWT and returns it along with the provider attributes.
+ *
+ * You can modify this to persist the user, create a profile, or redirect to the frontend with the token.
+ */
+@RestController
+@RequiredArgsConstructor
+public class OAuth2Controller {
+
+    private final JwtUtil jwtUtil;
+
+    @GetMapping("/oauth2/success")
+    public ResponseEntity<?> oauth2Success(@AuthenticationPrincipal OAuth2User principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Authentication failed"));
+        }
+
+        Map<String, Object> attributes = new HashMap<>(principal.getAttributes());
+
+        // Normalise minimal user claims used in the JWT (customise as required)
+        Map<String, Object> claims = new HashMap<>();
+        Object email = attributes.get("email");
+        Object name = attributes.get("name");
+        Object sub = attributes.get("sub"); // some providers put ID in 'sub'
+
+        claims.put("email", email != null ? email : sub);
+        claims.put("name", name != null ? name : attributes.getOrDefault("login", sub));
+        // default role for OAuth users (adjust as necessary)
+        claims.put("role", "CUSTOMER");
+
+        // add any other attributes you want inside the token
+        claims.put("providerAttributes", attributes);
+
+        String token = jwtUtil.generateToken(claims);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("user", attributes);
+
+        return ResponseEntity.ok(response);
+    }
+}

@@ -1,0 +1,166 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - name: CircuitBreaker
+          args:
+            name: globalCircuitBreaker
+            fallbackUri: forward:/fallback
+
+      globalcors:
+        cors-configurations:
+          "[/**]":
+            allowedOriginPatterns:
+              - "http://localhost:5173"
+              - "https://*.vercel.app"
+              - "https://book-nest-platform-frontend.vercel.app"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+        # OAuth -> Auth Service (explicit route for oauth paths and callback)
+        - id: auth-oauth-route
+          uri: lb://auth-service
+          predicates:
+            - Path=/oauth2/**,/login/oauth2/**,/api/oauth2/**,/oauth2/authorization/**,/api/oauth2/authorization/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Auth Service (other auth endpoints)
+        - id: auth-route
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**,/api/auth/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Book Service
+        - id: book-route
+          uri: lb://book-service
+          predicates:
+            - Path=/books/**,/api/books/**,/categories/**,/api/categories/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Cart Service
+        - id: cart-route
+          uri: lb://cart-service
+          predicates:
+            - Path=/carts/**,/api/carts/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Order Service
+        - id: order-route
+          uri: lb://order-service
+          predicates:
+            - Path=/orders/**,/api/orders/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Coupon Route (part of order service but separate path)
+        - id: coupons-route
+          uri: lb://order-service
+          predicates:
+            - Path=/coupons/**,/api/coupons/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Wishlist Service
+        - id: wishlist-route
+          uri: lb://wishlist-service
+          predicates:
+            - Path=/wishlists/**,/api/wishlists/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Wallet Service
+        - id: wallet-route
+          uri: lb://wallet-service
+          predicates:
+            - Path=/wallets/**,/api/wallets/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Payment Service
+        - id: payment-route
+          uri: lb://payment-service
+          predicates:
+            - Path=/payments/**,/api/payments/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Notification Service
+        - id: notification-route
+          uri: lb://notification-service
+          predicates:
+            - Path=/notifications/**,/api/notifications/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+        # Review Service
+        - id: review-route
+          uri: lb://review-service
+          predicates:
+            - Path=/reviews/**,/api/reviews/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /$\{segment}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: false
+    hostname: localhost
+    instance-id: ${spring.application.name}:${server.port}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      globalCircuitBreaker:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        registerHealthIndicator: true
+  timelimiter:
+    instances:
+      globalCircuitBreaker:
+        timeoutDuration: 5s
+
+logging:
+  file:
+    path: ../logs
+    name: ../logs/${spring.application.name}.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.booknest: DEBUG

@@ -1,0 +1,20 @@
+# Optional: copy env.example to razorpay.local.env, fill in Test keys, then run this script.
+$ErrorActionPreference = "Stop"
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$localEnv = Join-Path $here "razorpay.local.env"
+if (Test-Path $localEnv) {
+    Get-Content $localEnv | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -eq "" -or $line.StartsWith("#")) { return }
+        $eq = $line.IndexOf("=")
+        if ($eq -lt 1) { return }
+        $name = $line.Substring(0, $eq).Trim()
+        $val = $line.Substring($eq + 1).Trim()
+        [Environment]::SetEnvironmentVariable($name, $val, "Process")
+        Write-Host "Loaded $name"
+    }
+}
+$mvn = Join-Path $env:TEMP "apache-maven-3.9.15\bin\mvn.cmd"
+if (-not (Test-Path $mvn)) { $mvn = "mvn" }
+Set-Location $here
+& $mvn -DskipTests spring-boot:run

@@ -1,0 +1,39 @@
+package com.booknest.order.entity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+@Entity
+@Table(name = "order_items")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class OrderItem {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer orderItemId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
+    private Order order;
+
+    @NotNull
+    @Min(1)
+    @Column(name = "book_id", nullable = false)
+    private Integer bookId;
+
+    @NotNull
+    @Min(1)
+    @Column(name = "quantity", nullable = false)
+    private Integer quantity;
+
+    @NotNull
+    @Column(name = "price_at_purchase", nullable = false)
+    private Double priceAtPurchase;
+}

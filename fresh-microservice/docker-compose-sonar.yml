@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  sonarqube:
+    image: sonarqube:10.4.1-community
+    container_name: sonarqube
+    ports:
+      - "9001:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    networks:
+      - sonar-net
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+
+networks:
+  sonar-net:
+    driver: bridge

@@ -1,0 +1,20 @@
+package com.booknest.wallet.client;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+
+@FeignClient(name = "WALLET-SERVICE")
+public interface WalletClient {
+
+    record DebitRequest(Double amount, String remarks) {}
+
+    @PostMapping("/wallets/{userId}/debit")
+    void deductFunds(
+            @PathVariable("userId") Integer userId,
+            @RequestBody DebitRequest request,
+            @RequestHeader("Authorization") String token
+    );
+}

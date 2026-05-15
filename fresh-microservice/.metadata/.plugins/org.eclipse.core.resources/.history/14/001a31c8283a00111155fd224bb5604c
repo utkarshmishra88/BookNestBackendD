@@ -1,0 +1,140 @@
+package com.booknest.auth.service.impl;
+
+import com.booknest.auth.client.NotificationClient;
+import com.booknest.auth.entity.TokenBlacklist;
+import com.booknest.auth.entity.User;
+import com.booknest.auth.repository.TokenBlacklistRepository;
+import com.booknest.auth.repository.UserRepository;
+import com.booknest.auth.service.AuthService;
+import com.booknest.auth.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.security.SecureRandom;
+
+@Service
+@RequiredArgsConstructor
+public class AuthServiceImpl implements AuthService {
+
+    private final UserRepository userRepository;
+    private final TokenBlacklistRepository tokenBlacklistRepository;
+    private final NotificationClient notificationClient;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    @Override
+    @Transactional
+    public String registerUser(User user) {
+        if (user == null) {
+            throw new RuntimeException("Invalid registration request.");
+        }
+
+        if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
+            throw new RuntimeException("Email is required.");
+        }
+
+        if (user.getFullName() == null || user.getFullName().trim().isEmpty()) {
+            throw new RuntimeException("Full name is required.");
+        }
+
+        if (user.getPasswordHash() == null || user.getPasswordHash().trim().isEmpty()) {
+            throw new RuntimeException("Password is required.");
+        }
+
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new RuntimeException("Email already exists!");
+        }
+
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+
+        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
+        user.setOtp(otp);
+        user.setActive(false);
+        user.setRole("CUSTOMER");
+        user.setProvider("LOCAL");
+
+        userRepository.save(user);
+        notificationClient.sendOtp(user.getEmail(), otp);
+
+        return "Registration successful! Please check your email for the OTP.";
+    }
+
+    @Override
+    @Transactional
+    public String verifyOtp(String email, String otp) {
+        if (email == null || email.trim().isEmpty()) {
+            throw new RuntimeException("Email is required.");
+        }
+
+        if (otp == null || otp.trim().isEmpty()) {
+            throw new RuntimeException("OTP is required.");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found."));
+
+        if (user.getOtp() != null && user.getOtp().equals(otp)) {
+            user.setActive(true);
+            user.setOtp(null);
+            userRepository.save(user);
+            return "Account verified! You can now login.";
+        }
+
+        throw new RuntimeException("Invalid OTP.");
+    }
+
+    @Override
+    public String login(String email, String password) {
+        if (email == null || email.trim().isEmpty()) {
+            throw new RuntimeException("Email is required.");
+        }
+
+        if (password == null || password.trim().isEmpty()) {
+            throw new RuntimeException("Password is required.");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Invalid email or password."));
+
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            throw new RuntimeException("Please verify your account via OTP first.");
+        }
+
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new RuntimeException("Invalid email or password.");
+        }
+
+        return jwtUtil.generateToken(user);
+    }
+
+    @Override
+    @Transactional
+    public void logout(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return;
+        }
+
+        String token = authHeader.substring(7).trim();
+        if (!token.isEmpty() && !tokenBlacklistRepository.existsByToken(token)) {
+            tokenBlacklistRepository.save(
+                    TokenBlacklist.builder()
+                            .token(token)
+                            .build()
+            );
+        }
+    }
+
+    @Override
+    public User getProfile(Integer userId) {
+        if (userId == null) {
+            throw new RuntimeException("User ID is required.");
+        }
+
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found."));
+    }
+}

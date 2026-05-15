@@ -1,0 +1,61 @@
+package com.booknest.wishlist.service;
+
+import com.booknest.wishlist.client.BookClient;
+import com.booknest.wishlist.client.CartClient;
+import com.booknest.wishlist.entity.WishlistItem;
+import com.booknest.wishlist.repository.WishlistRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class WishlistServiceImpl implements WishlistService {
+
+    private final WishlistRepository wishlistRepository;
+    private final BookClient bookClient;
+    private final CartClient cartClient;
+
+    @Override
+    public List<WishlistItem> getUserWishlist(Integer userId) {
+        return wishlistRepository.findByUserId(userId);
+    }
+
+    @Override
+    public WishlistItem addToWishlist(Integer userId, Integer bookId) {
+        // Verify the book exists via Feign
+        bookClient.getBookById(bookId);
+
+        if (wishlistRepository.findByUserIdAndBookId(userId, bookId).isPresent()) {
+            throw new RuntimeException("Book is already in your wishlist.");
+        }
+
+        WishlistItem item = WishlistItem.builder()
+                .userId(userId)
+                .bookId(bookId)
+                .build();
+        
+        return wishlistRepository.save(item);
+    }
+
+    @Override
+    @Transactional
+    public void removeFromWishlist(Integer userId, Integer bookId) {
+        wishlistRepository.deleteByUserIdAndBookId(userId, bookId);
+    }
+
+    @Override
+    @Transactional
+    public void moveItemToCart(Integer userId, int bookId, String token) {
+        // 1. Verify it's in the wishlist
+        wishlistRepository.findByUserIdAndBookId(userId, bookId)
+                .orElseThrow(() -> new RuntimeException("Item not found in wishlist."));
+
+        // 2. Add to cart via Feign (passing the user's JWT token for authorization)
+        cartClient.addItemToCart(userId, bookId, 1, token);
+
+        // 3. Remove from wishlist
+        wishlistRepository.deleteByUserIdAndBookId(userId, bookId);
+    }
+}

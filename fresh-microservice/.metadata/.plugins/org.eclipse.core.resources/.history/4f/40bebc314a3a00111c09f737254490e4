@@ -1,0 +1,64 @@
+package com.booknest.wallet.resource;
+
+import com.booknest.wallet.dto.*;
+import com.booknest.wallet.service.WalletService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/wallets")
+@RequiredArgsConstructor
+public class WalletResource {
+
+    private final WalletService walletService;
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<WalletResponse> getWallet(@PathVariable Integer userId, Authentication authentication) {
+        validateOwnership(userId, authentication);
+        return new ResponseEntity<>(walletService.getWalletByUserId(userId), HttpStatus.OK);
+    }
+
+    @PostMapping("/{userId}/razorpay/create")
+    public ResponseEntity<CreateRazorpayOrderResponse> createRazorpayOrder(
+            @PathVariable Integer userId,
+            @Valid @RequestBody CreateRazorpayOrderRequest request,
+            Authentication authentication
+    ) {
+        validateOwnership(userId, authentication);
+        return new ResponseEntity<>(walletService.createRazorpayOrder(userId, request), HttpStatus.CREATED);
+    }
+
+    @PostMapping("/{userId}/razorpay/verify")
+    public ResponseEntity<WalletResponse> verifyAndTopUp(
+            @PathVariable Integer userId,
+            @Valid @RequestBody VerifyTopUpRequest request,
+            Authentication authentication
+    ) {
+        validateOwnership(userId, authentication);
+        return new ResponseEntity<>(walletService.verifyAndTopUp(userId, request), HttpStatus.OK);
+    }
+
+    @PostMapping("/{userId}/debit")
+    public ResponseEntity<WalletResponse> deductFunds(
+            @PathVariable Integer userId,
+            @Valid @RequestBody DebitRequest request,
+            Authentication authentication
+    ) {
+        validateOwnership(userId, authentication);
+        return new ResponseEntity<>(walletService.deductFunds(userId, request), HttpStatus.OK);
+    }
+
+    private void validateOwnership(Integer pathUserId, Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new RuntimeException("Unauthorized");
+        }
+        Integer authUserId = Integer.valueOf(authentication.getPrincipal().toString());
+        if (!authUserId.equals(pathUserId)) {
+            throw new RuntimeException("Forbidden: Cannot access another user's wallet");
+        }
+    }
+}

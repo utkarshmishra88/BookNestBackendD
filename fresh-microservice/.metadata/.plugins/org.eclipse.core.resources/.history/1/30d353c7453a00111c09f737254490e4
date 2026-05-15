@@ -1,0 +1,58 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+            allowedMethods: [GET, POST, PUT, DELETE, OPTIONS, PATCH]
+            allowedHeaders: "*"
+            allowCredentials: true
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: auth-route
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/auth/**
+        - id: book-route
+          uri: lb://BOOK-SERVICE
+          predicates:
+            - Path=/books/**, /categories/**
+        - id: cart-route
+          uri: lb://CART-SERVICE
+          predicates:
+            - Path=/carts/**
+        - id: order-route
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/orders/**
+        - id: wishlist-route
+          uri: lb://WISHLIST-SERVICE
+          predicates:
+            - Path=/wishlists/**
+        - id: wallet-route
+          uri: lb://WALLET-SERVICE
+          predicates:
+            - Path=/wallets/**
+        - id: notification-route
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/notifications/**
+        - id: review-route
+          uri: lb://REVIEW-SERVICE
+          predicates:
+            - Path=/reviews/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
