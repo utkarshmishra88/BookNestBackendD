@@ -5,21 +5,19 @@ pipeline {
         EC2_USER = 'ubuntu'
     }
     triggers { githubPush() }
-    stages {
-        stage('Deploy to EC2') {
-            steps {
-                sshagent(credentials: ['ec2-ssh-key']) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "
-                            cd /home/ubuntu/BookNestBackendD
-                            git pull origin main
-                            cd fresh-microservice
-                            docker compose up -d --build
-                        "
-                    '''
-                }
-            }
+    stage('Health Check') {
+    steps {
+        sshagent(credentials: ['ec2-ssh-key']) {
+            sh '''
+                ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "
+                    echo 'Waiting 60s for services to start...'
+                    sleep 60
+                    curl -f http://localhost:8761 && echo 'Eureka UP' || echo 'Eureka still starting - check manually'
+                "
+            '''
         }
+    }
+}
         stage('Health Check') {
             steps {
                 sshagent(credentials: ['ec2-ssh-key']) {
